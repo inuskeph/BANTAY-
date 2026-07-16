@@ -3,8 +3,20 @@
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import FireDetectionPanel from '@/components/fire/FireDetectionPanel';
+import SimulatedMap from '@/components/ui/SimulatedMap';
+import { mockFireHotspots } from '@/lib/utils/mock-data';
 
 export default function FireDetectionPage() {
+  const mapPins = mockFireHotspots.map(f => ({
+    id: f.id,
+    lat: f.location.latitude,
+    lng: f.location.longitude,
+    label: `${f.address} - ${f.intensity} intensity (${f.source})`,
+    color: f.status === 'active' ? '#dc2626' : f.status === 'contained' ? '#d97706' : '#16a34a',
+    icon: f.status === 'active' ? '🔥' : f.status === 'contained' ? '🟠' : '✅',
+    pulse: f.status === 'active',
+  }));
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -13,27 +25,11 @@ export default function FireDetectionPage() {
         <main className="p-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold font-[Poppins]">🔥 Fire Detection</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Real-time fire hotspot monitoring powered by satellite imagery and ground sensor reports.
-            </p>
+            <p className="text-sm text-gray-400 mt-1">Real-time fire hotspot monitoring powered by satellite imagery.</p>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FireDetectionPanel />
-
-            {/* Heat Map Placeholder */}
-            <div className="glass-card p-6">
-              <h3 className="text-lg font-semibold mb-4">🗺️ Heat Map</h3>
-              <div className="w-full h-[500px] bg-white/5 border border-white/10 rounded-xl flex items-center justify-center">
-                <div className="text-center">
-                  <span className="text-4xl block mb-2">🌡️</span>
-                  <p className="text-gray-400 text-sm">Fire Detection Heat Map</p>
-                  <p className="text-gray-500 text-xs mt-1">
-                    Satellite-based thermal anomaly detection overlay
-                  </p>
-                </div>
-              </div>
-            </div>
+            <SimulatedMap pins={mapPins} title="🌡️ Fire Heat Map" showUserLocation={true} />
           </div>
         </main>
       </div>

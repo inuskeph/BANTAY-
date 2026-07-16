@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 
 interface EmergencyQRCardProps {
   qrData: string;
@@ -10,54 +11,27 @@ interface EmergencyQRCardProps {
 
 export default function EmergencyQRCard({ qrData, name, bloodType }: EmergencyQRCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [generated, setGenerated] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!canvasRef.current || !qrData) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Generate a simple QR-like pattern (placeholder for actual QR library)
-    const size = 200;
-    canvas.width = size;
-    canvas.height = size;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
-
-    // Create a simple hash-based pattern
-    const cellSize = 8;
-    const cells = size / cellSize;
-    ctx.fillStyle = '#0f172a';
-
-    for (let i = 0; i < cells; i++) {
-      for (let j = 0; j < cells; j++) {
-        const charCode = qrData.charCodeAt((i * cells + j) % qrData.length);
-        if (charCode % 3 === 0 || (i < 3 && j < 3) || (i < 3 && j > cells - 4) || (i > cells - 4 && j < 3)) {
-          ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
-        }
-      }
-    }
-
-    // Draw position markers
-    const drawMarker = (x: number, y: number) => {
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(x + cellSize, y + cellSize, 5 * cellSize, 5 * cellSize);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize);
-    };
-
-    drawMarker(0, 0);
-    drawMarker((cells - 7) * cellSize, 0);
-    drawMarker(0, (cells - 7) * cellSize);
+    
+    QRCode.toCanvas(canvasRef.current, qrData, {
+      width: 250,
+      margin: 2,
+      color: { dark: '#0f172a', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    })
+      .then(() => setGenerated(true))
+      .catch((err) => setError('Failed to generate QR code: ' + err.message));
   }, [qrData]);
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
     const link = document.createElement('a');
     link.download = `bantay-emergency-qr-${name.replace(/\s+/g, '-').toLowerCase()}.png`;
-    link.href = canvasRef.current.toDataURL();
+    link.href = canvasRef.current.toDataURL('image/png');
     link.click();
   };
 
@@ -67,38 +41,64 @@ export default function EmergencyQRCard({ qrData, name, bloodType }: EmergencyQR
     if (!printWindow) return;
     printWindow.document.write(`
       <html>
-        <head><title>BANTAY Emergency QR - ${name}</title></head>
-        <body style="display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:sans-serif;">
-          <div style="text-align:center;">
-            <h1>BANTAY Emergency QR</h1>
-            <img src="${canvasRef.current.toDataURL()}" width="300" height="300"/>
-            <p><strong>${name}</strong> | Blood Type: ${bloodType}</p>
-            <p style="color:gray;">Scan in case of emergency</p>
+        <head><title>BANTAY Emergency QR - ${name}</title>
+        <style>
+          body { display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:system-ui,sans-serif; }
+          .card { text-align:center; border:3px solid #2563eb; border-radius:16px; padding:40px; max-width:400px; }
+          .logo { font-size:28px; font-weight:900; color:#2563eb; margin-bottom:4px; }
+          .subtitle { font-size:11px; color:#666; margin-bottom:20px; }
+          .blood { display:inline-block; background:#dc2626; color:white; padding:6px 16px; border-radius:20px; font-weight:bold; font-size:18px; margin:10px 0; }
+          .name { font-size:20px; font-weight:bold; margin-top:16px; }
+          .footer { margin-top:20px; font-size:10px; color:#999; }
+        </style></head>
+        <body>
+          <div class="card">
+            <div class="logo">BANTAY</div>
+            <div class="subtitle">Emergency Medical Information</div>
+            <img src="${canvasRef.current.toDataURL()}" width="250" height="250" />
+            <div class="blood">${bloodType}</div>
+            <div class="name">${name}</div>
+            <div class="footer">Scan QR code for complete emergency info<br/>BANTAY - National Safety Monitor</div>
           </div>
+          <script>setTimeout(()=>window.print(),500);</script>
         </body>
       </html>
     `);
     printWindow.document.close();
-    printWindow.print();
   };
 
   return (
     <div className="glass-card p-6 text-center">
-      <h3 className="text-lg font-semibold mb-4">Your Emergency QR Code</h3>
-      <div className="inline-block p-4 bg-white rounded-2xl mb-4">
-        <canvas ref={canvasRef} className="w-[200px] h-[200px]" />
+      <h3 className="text-lg font-semibold mb-2">Your Emergency QR Code</h3>
+      <p className="text-xs text-gray-400 mb-4">This QR code contains your emergency medical info. Show it to first responders.</p>
+      
+      {error && (
+        <div className="p-3 bg-bantay-danger/20 border border-bantay-danger/30 rounded-xl mb-4">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      <div className="inline-block p-4 bg-white rounded-2xl shadow-lg shadow-bantay-primary/20 mb-4">
+        <canvas ref={canvasRef} />
       </div>
+
       <div className="mb-4">
-        <p className="text-white font-medium">{name}</p>
-        <p className="text-sm text-gray-400">Blood Type: <span className="text-bantay-danger font-bold">{bloodType}</span></p>
+        <p className="text-white font-semibold text-lg">{name}</p>
+        <p className="text-sm text-gray-400">
+          Blood Type: <span className="text-bantay-danger font-bold text-lg">{bloodType}</span>
+        </p>
       </div>
-      <p className="text-xs text-gray-400 mb-6">Scan this QR code in case of emergency to access vital information.</p>
+
+      <div className="p-3 bg-bantay-safe/10 border border-bantay-safe/30 rounded-xl mb-6">
+        <p className="text-xs text-bantay-safe">✓ QR code generated successfully — scannable with any QR reader</p>
+      </div>
+
       <div className="flex gap-3 justify-center">
-        <button onClick={handleDownload} className="btn-primary text-sm">
-          📥 Download
+        <button onClick={handleDownload} disabled={!generated} className="btn-primary text-sm disabled:opacity-50">
+          📥 Download PNG
         </button>
-        <button onClick={handlePrint} className="btn-safe text-sm">
-          🖨️ Print
+        <button onClick={handlePrint} disabled={!generated} className="btn-safe text-sm disabled:opacity-50">
+          🖨️ Print Card
         </button>
       </div>
     </div>
